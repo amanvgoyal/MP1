@@ -47,11 +47,14 @@ typedef void * Addr;
 /* MODULE   MY_ALLOCATOR */
 /*--------------------------------------------------------------------------*/
 
+// Remove header so we can merge
+void clear(Header*);
+
 // Merge two buddies
 Header* join(Header*);
 
 // Split two blocks into two buddies
-void split(Header*);
+void split(int);
 
 unsigned int init_allocator(unsigned int _basic_block_size, 
 			    unsigned int _length); 
