@@ -116,7 +116,7 @@ int release_allocator() {
 }
 
 extern Addr my_malloc(unsigned int _length) {
-  /*  int alloc_size = 0;
+  int alloc_size = 0;
   if (_length > mem_size) {
     printf("Error, trying to allocate more than maximum size!\n");
     abort();
@@ -125,13 +125,21 @@ extern Addr my_malloc(unsigned int _length) {
   // Find size to give user (give)
   int temp = mem_size;
   int need = _length + sizeof(Header);
-  int give = 0;
-  while (need < temp) {
+  int give = pow(2, (int) round (log2(need) + .5));
+  /*while (need < temp) {
     temp /= 2;
   }
   give = temp*2;
-
-  int fl_index = log2(give) - log2(block_size); // index of free list 
+  */
+  if (give < block_size) {give = block_size;}
+  if (give > mem_size) {
+    printf("give: %d, max: %d\n", give, mem_size);
+    printf("YOU NEED TOO MUCH!\n");
+    give = block_size; // FIX THIS
+  }
+  int fl_index = log2(give) - log2(block_size); // index of free list
+  printf("need: %d, give: %d, block size: %d\n", need, give, block_size);
+  printf("fl_index: %d\n\n", fl_index);
   if (free_lists[fl_index]->free == true) {
     // Must do splitting here...
   }
@@ -143,7 +151,7 @@ extern Addr my_malloc(unsigned int _length) {
       printf("free\n");
     }
   }
-  */
+  
   return malloc((size_t)_length);
 }
 
