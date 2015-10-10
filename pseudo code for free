@@ -1,0 +1,33 @@
+//i assume that when user frees the memory he tells us the address of the block which he wants to be freed
+
+we make bool free of the block true, 
+
+and then we call the join function from this function only.
+
+and we pass that memory address to the join function.
+
+----------------------------------------------------------------------------------------------
+join function
+
+
+this join function will find the buddy of the block that has been passed to it
+then it will check if it's bool free
+if it's false 
+    then it will check the size of the block and will find it's index in the free table
+
+            it will check the free bool of that index in the free list.
+
+                     if that is true 
+                         it will simply put the block address at that index position.
+          
+                     else 
+                        it will go toh that block and go the next block it points till it find's the block with the next pointer
+                        as null and then it makes the next pointer to point th the memory block that user just freed.
+else
+
+//if it's buddy block is free
+then in doubles the size integer in the header of the passed block.
+
+then it again calls the join function with this address.
+
+//note: we'll be needing to some changes to these functions so they don't fail at the boundy counsitions.
