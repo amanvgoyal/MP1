@@ -132,21 +132,23 @@ Header* join(Header* buddy1) {
 }
 
 // Split a block 
-void split(int tier) {
+// void split(int tier, int size)
+Header* split(int tier, int cur_size) {
   int ct = num_lists - 1;
   int size_needed = pow(2, tier + log2(block_size));
 
   Header* temp = free_lists[ct];
-  // Find a free block >= size_needed
-  while (free_lists[ct] && free_lists[ct]->size > size_needed) {
-    temp = free_lists[ct];
-    //while (temp && temp->free == false) {
-    while (true) {
-      if (temp->free == true) {break;}
+
+  if (cur_size > size_needed) {
+    
+    while (temp->next) {
       temp = temp->next;
+      if (temp->free) {
+	
+      }
     }
-    --ct;
   }
+
   printf("End split size: %d\n", temp->size);
 }
 
@@ -212,7 +214,7 @@ extern Addr my_malloc(unsigned int _length) {
   }
   
   int fl_index = log2(give) - log2(block_size); // index of free list
-  printf("need: %d, give: %d, block size: %d\n", need, give, block_size);
+  printf("need: %pd, give: %d, block size: %d\n", need, give, block_size);
   printf("fl_index: %d\n\n", fl_index);
   
   // If valid amt of mem to give and we have room for it
@@ -248,7 +250,7 @@ extern Addr my_malloc(unsigned int _length) {
     // There is no block of the size we need, we need to split a bigger one
     else {
       printf("NULL BLOCK\n");
-      split(fl_index);
+      split(fl_index, max_size);
     }
   }
 
@@ -257,6 +259,27 @@ extern Addr my_malloc(unsigned int _length) {
 
 extern int my_free(Addr _a) {
   /* Same here! */
+  // Reject invalid free requests
+  if (!_a) {return -1;}
+  
+
+  // Get beginning of memory before header
+  Header* begin = (Header*) ((void*) _a - sizeof(Header));
+  int tier = log2(begin->size) - log2(block_size);
+  begin->free = true;
+  begin->size = 2 * begin->size;
+  
+  // no block in next highest tier 
+  if (!free_lists[tier + 1] && tier + 1 < num_lists) {
+    begin->next = NULL;
+    free_lists[tier + 1] = begin;
+  }
+  
+  // exist blocks in next highest tier
+  else {
+    
+  }
+  
   free(_a);
   return 0;
 }
