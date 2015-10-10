@@ -1,0 +1,13 @@
+// we pass the size(let it be S) of the block that we need to give to the user.
+
+calculate the index[i] for the rrequired memory in the free table
+check free
+    while(freelist[i]->free !=true)
+        i++;
+        
+    int temp = freelist[i]->size;
+    
+    while(temp!=S)
+      go to the block which that index points to
+        now find buddy()
+        
