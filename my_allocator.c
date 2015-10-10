@@ -97,58 +97,135 @@ void clear(Header* buddy1) {
 // merge buddies
 Header* join(Header* buddy1) {
   //clear(buddy1); ADD THIS IN LATER
-  // Header* buddy2 = (Header*) ((intptr_t)buddy1 ^ buddy1->size); 
   
-  // int offset = block_addr - origin;
-  // int buddy_offset = offst ^ size;
-  // char* buddy_addr = origin + buddy_offset;
-
   int offset = (char*) buddy1 - (char*) base_addr;
   int buddy_offset = offset ^ (buddy1->size);
-  char* buddy_addr = (char*) base_addr + buddy_offset;
+  Header* buddy_addr = (Header*) base_addr + buddy_offset;
+
+ int tier = log2(buddy1->size) - log2(block_size);
+  if (! buddy_addr->free) {
    
-  int tier = log2(buddy1->size) - log2(block_size);
- 
-  // Set up buddy 1 to have 2* size and be free
-  buddy1->next = NULL;
-  buddy1->size = 2*buddy1->size;
-  buddy1->free = true;
-
-  // If we don't already have a block of size 2*buddy1->size
-  if (free_lists[tier + 1]->free == true) {
-    free_lists[tier + 1] = buddy1;
-  }
-  
-  // If we already have a block(s) of size 2*buddy->size
-  // make buddy1 the next header in freelists[tier+1]
-  else {
-    Header* temp = free_lists[tier + 1];
-    while (temp->next) {
-      temp = temp->next;
+    // Take free blocks back, put back in free list
+    if (free_lists[tier]) {
+      Header* temp = free_lists[tier];
+      if (!temp->free) {
+	while (temp->next) {
+	  temp = temp->next;
+	}
+	temp->next = buddy1;
+      }
+      else {
+	free_lists[tier] = buddy1;
+      }
     }
-    temp = buddy1;
+  
+    else {
+      free_lists[tier] = buddy1;
+    }
   }
 
-}
+  else {
+    buddy1->size = 2 * buddy1->size;
+    if (free_lists[tier + 1]->free) {
+      free_lists[tier + 1] = buddy1;
+      free_lists[tier] = NULL;
+      buddy1->next = NULL;
+    }
 
-// Split a block 
-// void split(int tier, int size)
-Header* split(int tier, int cur_size) {
-  int ct = num_lists - 1;
-  int size_needed = pow(2, tier + log2(block_size));
+    else { 
+      Header* temp2 = free_lists[tier + 1];
+      while (temp2->next) {
+	temp2 = temp2->next;
+      }
+      temp2->next = buddy1;
+      join(buddy1);
+    }
+  }
+  /*
+  Header* return_buddy;
+  Header* temp;
 
-  Header* temp = free_lists[ct];
+  // If 1st buddy is free
+  if (!buddy1->free) {
+    if (free_lists[tier + 1]) {
+      temp = free_lists[tier + 1];
 
-  if (cur_size > size_needed) {
-    
-    while (temp->next) {
-      temp = temp->next;
-      if (temp->free) {
-	
+      // If there is a block at the next tier and it is free
+      // just set return buddy to this block
+      if (free_lists[tier + 1]->free) {
+	return_buddy = free_lists[tier];
+	free_lists[tier]->free = true;
+	free_lists[tier]->next = NULL;
+      }
+
+      else {
+	while (temp->next) {
+	  temp = temp->next;
+	}
+	temp->next = buddy1;
       }
     }
   }
 
+  else {
+    if ( (buddy1->next)->free ) {
+      buddy1->size = 2 * buddy1->size;
+      join(buddy1);
+    }
+  }
+  */
+}
+
+// Split a block 
+// void split(int tier, int size)
+Header* split(int size_need) {
+  int cur_tier = log2(size_need) - log2(block_size);
+  Header* temp = free_lists[cur_tier];
+  
+  int ct = cur_tier;
+  while (temp == NULL || temp->free == true) {
+    ++ct;
+    temp = free_lists[ct];
+  }
+
+  int cur_size = temp->size;
+  while (cur_size != size_need) {
+    int offset = (char*) temp - (char*) base_addr;//i assume this to work
+    int buddy_offset = offset ^ (temp->size / 2);
+    char* buddy_addr = (char*) base_addr + buddy_offset;
+    
+    // Set 1st buddy
+    temp->size = cur_size / 2;
+    temp->free = true;
+    temp->next = (Header*) buddy_addr;
+
+    (temp->next)->size = cur_size / 2;
+    (temp->next)->free = true;
+
+    free_lists[cur_tier - 1] = temp;
+    free_lists[cur_tier]->free = true;
+
+    if (cur_size / 2 == size_need) {
+      return temp->next;
+    }
+
+    temp = temp->next;
+  }
+  
+  /*
+  Header* temp; //= free_lists[ct];
+  if (free_lists[cur_tier] == NULL) {
+    if (split(tier_need, cur_size / 2) == NULL) {
+      return NULL;
+    }
+  }
+
+  else {
+    temp = free_lists[cur_tier];
+    clear(temp);
+    temp->size = size_need;
+  }
+  */
   printf("End split size: %d\n", temp->size);
 }
 
@@ -196,44 +273,43 @@ int release_allocator() {
 
 extern Addr my_malloc(unsigned int _length) {
   int alloc_size = 0;
-  if (_length > mem_size) {
-    printf("Error, trying to allocate more than maximum size!\n");
-    abort();
-  }
-
-  int temp = mem_size;
   int need = _length + sizeof(Header); // Size of mem required
   int give = pow(2, (int) round (log2(need) + .5)); // need rounded to 2^k
-  
-  // Reject/Fix invalid requests
+
+  // reject if need too much
   if (give < block_size) {give = block_size;}
   if (give > max_size) {
     printf("give: %d, max: %d\n", give, max_size);
     printf("YOU NEED TOO MUCH!\n");
     give = 0; // FIX THIS
+    return 0;
   }
   
   int fl_index = log2(give) - log2(block_size); // index of free list
-  printf("need: %pd, give: %d, block size: %d\n", need, give, block_size);
+  printf("need: %d, give: %d, block size: %d\n", need, give, block_size);
   printf("fl_index: %d\n\n", fl_index);
   
   // If valid amt of mem to give and we have room for it
   int ct = num_lists - 1;
-  if (give != 0 && !no_room) {
+  /*if (!no_room) {
     // Special case when user needs whole memory
     if (give == max_size && free_lists[num_lists - 1]->free == true) {
       printf("TAKEN THE WHOLE THING!\n");
       free_lists[num_lists - 1]->free = false;
       no_room = true;
       return (void*) base_addr;
-    }
-       
+      }*/
+    
+  // Ehh?
+  return (void*) split(give) + sizeof(Header*);
+  
+  /*
     // If there exists a block of the size we want
     if (free_lists[fl_index] != NULL) {
       // If the block is free then we can use it 
       if (free_lists[fl_index]->free == true) {
 	// Must do splitting here...?
-	printf("block of this size not used yet!\n");
+	// return (void*) free_lists[fl_index]
       }
   
       // Otherwise look further in the free list for a block of correct size
@@ -241,7 +317,7 @@ extern Addr my_malloc(unsigned int _length) {
 	Header * current = free_lists[fl_index];
 	printf("add a block of this size\n");
 	while (current->next != NULL || current->free == true) {
-	  //current = c
+	  current = current->next;
 	  printf("free\n");
 	}
       }
@@ -250,21 +326,25 @@ extern Addr my_malloc(unsigned int _length) {
     // There is no block of the size we need, we need to split a bigger one
     else {
       printf("NULL BLOCK\n");
-      split(fl_index, max_size);
+      //      split(fl_index, max_size);
     }
-  }
-
-  return malloc((size_t)_length);
+					     
+  return malloc((size_t)_length);*/
 }
 
-extern int my_free(Addr _a) {
+extern int my_free(Addr _a) {/*
+  Header* h = (Header*) _a - sizeof(Header*);
+   h->free = true;
+   join(h);*/
+
+
   /* Same here! */
   // Reject invalid free requests
-  if (!_a) {return -1;}
+  /*if (!_a) {return -1;}
   
-
+  
   // Get beginning of memory before header
-  Header* begin = (Header*) ((void*) _a - sizeof(Header));
+  Header* begin = (Header*) ((char*) _a - sizeof(Header));
   int tier = log2(begin->size) - log2(block_size);
   begin->free = true;
   begin->size = 2 * begin->size;
@@ -273,14 +353,13 @@ extern int my_free(Addr _a) {
   if (!free_lists[tier + 1] && tier + 1 < num_lists) {
     begin->next = NULL;
     free_lists[tier + 1] = begin;
-  }
+  } 
   
   // exist blocks in next highest tier
   else {
     
   }
-  
+  */
   free(_a);
   return 0;
 }
-

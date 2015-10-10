@@ -54,7 +54,7 @@ void clear(Header*);
 Header* join(Header*);
 
 // Split two blocks into two buddies
-Header* split(int, int);
+Header* split(int);
 
 unsigned int init_allocator(unsigned int _basic_block_size, 
 			    unsigned int _length); 
