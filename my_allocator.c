@@ -44,6 +44,7 @@ int max_size = 0; // maximum block size (size of blocks in last free list)
 int mem_size = 0;
 int block_size = 0;
 Header* base_addr;
+bool no_room = false;
 /*--------------------------------------------------------------------------*/
 /* CONSTANTS */
 /*--------------------------------------------------------------------------*/
@@ -131,8 +132,22 @@ Header* join(Header* buddy1) {
 }
 
 // Split a block 
-void split(Header* buddy1) {
+void split(int tier) {
+  int ct = num_lists - 1;
+  int size_needed = pow(2, tier + log2(block_size));
 
+  Header* temp = free_lists[ct];
+  // Find a free block >= size_needed
+  while (free_lists[ct] && free_lists[ct]->size > size_needed) {
+    temp = free_lists[ct];
+    //while (temp && temp->free == false) {
+    while (true) {
+      if (temp->free == true) {break;}
+      temp = temp->next;
+    }
+    --ct;
+  }
+  printf("End split size: %d\n", temp->size);
 }
 
 unsigned int init_allocator(unsigned int b, unsigned int len) {
@@ -166,7 +181,7 @@ unsigned int init_allocator(unsigned int b, unsigned int len) {
 
   free_lists[num_lists - 1] = mem;
   free_lists[num_lists - 1]->next = NULL;
-  free_lists[num_lists - 1]->free = false;
+  free_lists[num_lists - 1]->free = true;
   free_lists[num_lists - 1]->size = max_size;
   printf("\nlast: %d\n", free_lists[num_lists - 1]->size);
 
@@ -184,15 +199,14 @@ extern Addr my_malloc(unsigned int _length) {
     abort();
   }
 
-  // Find size to give user (give)
   int temp = mem_size;
-  int need = _length + sizeof(Header);
-  int give = pow(2, (int) round (log2(need) + .5));
+  int need = _length + sizeof(Header); // Size of mem required
+  int give = pow(2, (int) round (log2(need) + .5)); // need rounded to 2^k
   
-  // Reject invalid requests
+  // Reject/Fix invalid requests
   if (give < block_size) {give = block_size;}
-  if (give > mem_size) {
-    printf("give: %d, max: %d\n", give, mem_size);
+  if (give > max_size) {
+    printf("give: %d, max: %d\n", give, max_size);
     printf("YOU NEED TOO MUCH!\n");
     give = 0; // FIX THIS
   }
@@ -201,15 +215,26 @@ extern Addr my_malloc(unsigned int _length) {
   printf("need: %d, give: %d, block size: %d\n", need, give, block_size);
   printf("fl_index: %d\n\n", fl_index);
   
-  if (give != 0) {
-    // If we have not used this block size yet
+  // If valid amt of mem to give and we have room for it
+  int ct = num_lists - 1;
+  if (give != 0 && !no_room) {
+    // Special case when user needs whole memory
+    if (give == max_size && free_lists[num_lists - 1]->free == true) {
+      printf("TAKEN THE WHOLE THING!\n");
+      free_lists[num_lists - 1]->free = false;
+      no_room = true;
+      return (void*) base_addr;
+    }
+       
+    // If there exists a block of the size we want
     if (free_lists[fl_index] != NULL) {
-          if (free_lists[fl_index]->free == true) {
-	// Must do splitting here...
+      // If the block is free then we can use it 
+      if (free_lists[fl_index]->free == true) {
+	// Must do splitting here...?
 	printf("block of this size not used yet!\n");
       }
   
-      // If we need another block of size x
+      // Otherwise look further in the free list for a block of correct size
       else {
 	Header * current = free_lists[fl_index];
 	printf("add a block of this size\n");
@@ -217,8 +242,14 @@ extern Addr my_malloc(unsigned int _length) {
 	  //current = c
 	  printf("free\n");
 	}
-	}
       }
+    }
+    
+    // There is no block of the size we need, we need to split a bigger one
+    else {
+      printf("NULL BLOCK\n");
+      split(fl_index);
+    }
   }
 
   return malloc((size_t)_length);
