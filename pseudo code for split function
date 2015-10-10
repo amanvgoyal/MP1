@@ -7,7 +7,14 @@ check free
         
     int temp = freelist[i]->size;
     
-    while(temp!=S)
-      go to the block which that index points to
-        now find buddy()
-        
+    while(temp!=S){
+      go to the block which that index points  to // freelist[i];
+        now find buddy
+        put the buddy address in next of the address which we have taken from free list
+        change the size in header in both of the  blocks to be temp/2
+        now put the address of the block which we took from free list to i-1 of free list
+        and make the header of free list [i]=null
+        and if (temp/2==S)
+            call the allocate function
+        i--;
+        }
