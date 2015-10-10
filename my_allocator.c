@@ -180,8 +180,12 @@ Header* join(Header* buddy1) {
 // void split(int tier, int size)
 Header* split(int size_need) {
   int cur_tier = log2(size_need) - log2(block_size);
-  Header* temp = free_lists[cur_tier];
-  
+  Header* temp;
+
+  if (free_lists[cur_tier]) {
+    temp = free_lists[cur_tier];
+  }
+
   int ct = cur_tier;
   while (temp == NULL || temp->free == true) {
     ++ct;
@@ -194,6 +198,7 @@ Header* split(int size_need) {
     int buddy_offset = offset ^ (temp->size / 2);
     char* buddy_addr = (char*) base_addr + buddy_offset;
     
+    
     // Set 1st buddy
     temp->size = cur_size / 2;
     temp->free = true;
@@ -204,7 +209,6 @@ Header* split(int size_need) {
 
     free_lists[cur_tier - 1] = temp;
     free_lists[cur_tier]->free = true;
-
     if (cur_size / 2 == size_need) {
       return temp->next;
     }
@@ -291,45 +295,11 @@ extern Addr my_malloc(unsigned int _length) {
   
   // If valid amt of mem to give and we have room for it
   int ct = num_lists - 1;
-  /*if (!no_room) {
-    // Special case when user needs whole memory
-    if (give == max_size && free_lists[num_lists - 1]->free == true) {
-      printf("TAKEN THE WHOLE THING!\n");
-      free_lists[num_lists - 1]->free = false;
-      no_room = true;
-      return (void*) base_addr;
-      }*/
-    
+      
   // Ehh?
-  return (void*) split(give) + sizeof(Header*);
+  return (void*) ((char*) split(give) + sizeof(Header*));
   
-  /*
-    // If there exists a block of the size we want
-    if (free_lists[fl_index] != NULL) {
-      // If the block is free then we can use it 
-      if (free_lists[fl_index]->free == true) {
-	// Must do splitting here...?
-	// return (void*) free_lists[fl_index]
-      }
-  
-      // Otherwise look further in the free list for a block of correct size
-      else {
-	Header * current = free_lists[fl_index];
-	printf("add a block of this size\n");
-	while (current->next != NULL || current->free == true) {
-	  current = current->next;
-	  printf("free\n");
-	}
-      }
-    }
-    
-    // There is no block of the size we need, we need to split a bigger one
-    else {
-      printf("NULL BLOCK\n");
-      //      split(fl_index, max_size);
-    }
-					     
-  return malloc((size_t)_length);*/
+  //  return malloc((size_t)_length);
 }
 
 extern int my_free(Addr _a) {/*
