@@ -37,13 +37,13 @@
 /* DATA STRUCTURES */ 
 /*--------------------------------------------------------------------------*/
  
-char* mem;
+Header* mem;
 Header** free_lists; // lists for each size 2^k, k in [4, max]
 int num_lists = 0; // cardinality of above set 
 int max_size = 0; // maximum block size (size of blocks in last free list)
 int mem_size = 0;
 int block_size = 0;
-char* base_addr;
+Header* base_addr;
 /*--------------------------------------------------------------------------*/
 /* CONSTANTS */
 /*--------------------------------------------------------------------------*/
@@ -102,9 +102,9 @@ Header* join(Header* buddy1) {
   // int buddy_offset = offst ^ size;
   // char* buddy_addr = origin + buddy_offset;
 
-  int offset = (char*) buddy1 - base_addr;
+  int offset = (char*) buddy1 - (char*) base_addr;
   int buddy_offset = offset ^ (buddy1->size);
-  char* buddy_addr = base_addr + buddy_offset;
+  char* buddy_addr = (char*) base_addr + buddy_offset;
    
   int tier = log2(buddy1->size) - log2(block_size);
  
@@ -131,7 +131,7 @@ Header* join(Header* buddy1) {
 }
 
 // Split a block 
-void split(int tier) {
+void split(Header* buddy1) {
 
 }
 
@@ -155,36 +155,22 @@ unsigned int init_allocator(unsigned int b, unsigned int len) {
     ++num_lists;
   }
 
-  //max_size = pow(2, num_lists);
+  max_size = pow(2, num_lists + log2(b)); // Give too much
 
-  mem = (char*) malloc(len);
-  free_lists = (Header**) malloc(sizeof(Header*) * num_lists);
+  mem = (Header*) malloc(len);
+  free_lists = (Header**) malloc(sizeof(Header) * num_lists);
 
   base_addr = mem;
-  /*  free_lists[num_lists - 1] = (Header*) base_addr;
-      free_lists[num_lists - 1]->free = false;
-      free_lists[num_lists - 1]->size = len;
-  */
+  
+  for (int i = 0; i < num_lists - 1; ++i) {free_lists[i] = NULL;}
 
-  // Init free list
-  printf("num_lists: %d", num_lists);
-  for (int i = 0; i < num_lists; ++i) {
-    free_lists[i] = (Header*) base_addr;
-    free_lists[i]->size = pow(2, log2(b) + i); // Set block size
-    free_lists[i]->free = true;
-    free_lists[i]->next = NULL;
-    
-    //printf("asdf: %d\n", free_lists[]->free);
-  }
-  printf("before: %d\n", free_lists[0]->free);
-
-  free_lists[num_lists - 1] = (Header*) base_addr;
+  free_lists[num_lists - 1] = mem;
+  free_lists[num_lists - 1]->next = NULL;
   free_lists[num_lists - 1]->free = false;
-  free_lists[num_lists - 1]->size = len;
+  free_lists[num_lists - 1]->size = max_size;
+  printf("\nlast: %d\n", free_lists[num_lists - 1]->size);
 
-  printf("after: %d\n", free_lists[0]->free);
-
-  return len;
+  return max_size;
 }
 
 int release_allocator() {
@@ -192,7 +178,7 @@ int release_allocator() {
 }
 
 extern Addr my_malloc(unsigned int _length) {
-  printf("size 12: %d\n", free_lists[10]->free);
+  
   
   int alloc_size = 0;
   if (_length > mem_size) {
@@ -219,22 +205,24 @@ extern Addr my_malloc(unsigned int _length) {
   
   if (give != 0) {
     // If we have not used this block size yet
-    if (free_lists[fl_index]->free == true) {
-      // Must do splitting here...
-      printf("block of this size not used yet!\n");
-    }
-  
-    // If we need another block of size x
-    else {
-      Header * current = free_lists[fl_index];
-      printf("add a block of this size\n");
-      while (current->next != NULL || current->free == true) {
-	//current = c
-	printf("free\n");
+    if (free_lists[fl_index] != NULL) {
+          if (free_lists[fl_index]->free == true) {
+	// Must do splitting here...
+	printf("block of this size not used yet!\n");
       }
-    }
+  
+      // If we need another block of size x
+      else {
+	Header * current = free_lists[fl_index];
+	printf("add a block of this size\n");
+	while (current->next != NULL || current->free == true) {
+	  //current = c
+	  printf("free\n");
+	}
+	}
+      }
   }
-
+  */
   return malloc((size_t)_length);
 }
 
