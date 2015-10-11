@@ -185,20 +185,37 @@ Header* split(int size_need) {
   if (free_lists[cur_tier]) {
     temp = free_lists[cur_tier];
   }
-
+  
   int ct = cur_tier;
-  while (temp == NULL || temp->free == true) {
+  //  while (temp == NULL || temp->free == true) {
+  while (temp == NULL) {
+    printf("ct: %d", ct);
     ++ct;
     temp = free_lists[ct];
+    //++ct;
   }
-
-  int cur_size = temp->size;
+  
+  while(!temp) {
+    ++ct;
+    temp = free_lists[ct];
+    printf("Ct: %d\n", ct);
+  }
+  
+  int cur_size = pow(2, cur_tier + log2(block_size));
+  // should be !=
+  if (temp == NULL){
+    printf("cbefore: %d, need: %d\n", cur_size, size_need);
+    temp->size = 0;
+    cur_size = temp->size;
+  }
+  
+  printf("cur: %d, need: %d\n", cur_size, size_need);
   while (cur_size != size_need) {
-    int offset = (char*) temp - (char*) base_addr;//i assume this to work
+    printf("IN HERE ! \n");
+    int offset = (char*) temp - (char*) base_addr; //i assume this to work
     int buddy_offset = offset ^ (temp->size / 2);
     char* buddy_addr = (char*) base_addr + buddy_offset;
-    
-    
+          
     // Set 1st buddy
     temp->size = cur_size / 2;
     temp->free = true;
@@ -215,22 +232,7 @@ Header* split(int size_need) {
 
     temp = temp->next;
   }
-  
-  /*
-  Header* temp; //= free_lists[ct];
-  if (free_lists[cur_tier] == NULL) {
-    if (split(tier_need, cur_size / 2) == NULL) {
-      return NULL;
-    }
-  }
-
-  else {
-    temp = free_lists[cur_tier];
-    clear(temp);
-    temp->size = size_need;
-  }
-  */
-  printf("End split size: %d\n", temp->size);
+  // return?
 }
 
 unsigned int init_allocator(unsigned int b, unsigned int len) {
@@ -297,9 +299,10 @@ extern Addr my_malloc(unsigned int _length) {
   int ct = num_lists - 1;
       
   // Ehh?
-  return (void*) ((char*) split(give) + sizeof(Header*));
-  
-  //  return malloc((size_t)_length);
+  //return (void*) ((char*) split(give)) + sizeof(Header*));
+  Header* hh = split(give);
+  //printf("SIZE: %d\n", hh->size);
+  return malloc((size_t)_length);
 }
 
 extern int my_free(Addr _a) {/*
