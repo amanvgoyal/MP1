@@ -67,31 +67,6 @@ void clear(Header* buddy1) {
   
   Header* buddy2_addr = (Header*) ((intptr_t)buddy1 ^ buddy1->size); 
   memset(buddy2_addr, 0, sizeof(Header));
-  /*Header b2 = *buddy2_addr;
-  Header b1 = *buddy1;
- 
-  int tier = log2(buddy1->size) - log2(block_size);
- 
-  // Set up buddy 1 to have 2* size and be free
-  buddy1->next = NULL;
-  buddy1->size = 2*buddy1->size;
-  buddy1->free = true;
-
-  // If we don't already have a block of size 2*buddy1->size
-  if (free_lists[tier + 1]->free == true) {
-    free_lists[tier + 1] = buddy1;
-  }
-  
-  // If we already have a block(s) of size 2*buddy->size
-  // make buddy1 the next header in freelists[tier+1]
-  else {
-    Header* temp = free_lists[tier + 1];
-    while (temp->next) {
-      temp = temp->next;
-    }
-    temp = buddy1;
-  }
-  */
 }
 
 // merge buddies
@@ -141,39 +116,6 @@ Header* join(Header* buddy1) {
       join(buddy1);
     }
   }
-  /*
-  Header* return_buddy;
-  Header* temp;
-
-  // If 1st buddy is free
-  if (!buddy1->free) {
-    if (free_lists[tier + 1]) {
-      temp = free_lists[tier + 1];
-
-      // If there is a block at the next tier and it is free
-      // just set return buddy to this block
-      if (free_lists[tier + 1]->free) {
-	return_buddy = free_lists[tier];
-	free_lists[tier]->free = true;
-	free_lists[tier]->next = NULL;
-      }
-
-      else {
-	while (temp->next) {
-	  temp = temp->next;
-	}
-	temp->next = buddy1;
-      }
-    }
-  }
-
-  else {
-    if ( (buddy1->next)->free ) {
-      buddy1->size = 2 * buddy1->size;
-      join(buddy1);
-    }
-  }
-  */
 }
 
 // Split a block 
@@ -314,8 +256,7 @@ extern Addr my_malloc(unsigned int _length) {
   // If valid amt of mem to give and we have room for it
   int ct = num_lists - 1;
       
-  //return (void*) ((char*) split(give)) + sizeof(Header*));
-  Header* hh = split(give) + sizeof(Header);
+  Header* hh = split(give);// + sizeof(Header);
   printf("2GIVE: %d, SPLIT SIZE: %d\n", give, hh->size);
   printf("base: %p, hh: %p\n", (void*) base_addr, hh);
   return (void*) hh;
