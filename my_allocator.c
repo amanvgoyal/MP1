@@ -180,11 +180,12 @@ Header* join(Header* buddy1) {
 // void split(int tier, int size)
 Header* split(int size_need) {
   int cur_tier = log2(size_need) - log2(block_size);
-  Header* temp;
+  Header* temp = free_lists[num_lists-1]; //?????
 
   if (free_lists[cur_tier]) {
     temp = free_lists[cur_tier];
   }
+  
   
   int ct = cur_tier;
   //  while (temp == NULL || temp->free == true) {
@@ -203,33 +204,47 @@ Header* split(int size_need) {
   
   int cur_size = pow(2, cur_tier + log2(block_size));
   // should be !=
-  if (temp == NULL){
-    printf("cbefore: %d, need: %d\n", cur_size, size_need);
-    temp->size = 0;
+  if (temp != NULL){
+    //printf("cbefore: %d, need: %d\n", cur_size, size_need);
+    //temp->size = 0;
     cur_size = temp->size;
   }
   
   printf("cur: %d, need: %d\n", cur_size, size_need);
-  while (cur_size != size_need) {
+  while (cur_size > size_need) {
     printf("IN HERE ! \n");
     int offset = (char*) temp - (char*) base_addr; //i assume this to work
     int buddy_offset = offset ^ (temp->size / 2);
     char* buddy_addr = (char*) base_addr + buddy_offset;
-          
+      
+    
     // Set 1st buddy
     temp->size = cur_size / 2;
     temp->free = true;
-    temp->next = (Header*) buddy_addr;
+    
+    free_lists[cur_tier - 1] = temp;
+    
+    Header * buddy2 = (Header*) buddy_addr;
+    buddy2->size = cur_size / 2;
+    buddy2->free = true;
+    buddy2->next = NULL;
 
+    free_lists[cur_tier - 1]->next = buddy2;
+        
+    /*
+    temp->size = cur_size / 2;
+    temp->free = true;
+    temp->next = (Header*) buddy_addr;
+    
     (temp->next)->size = cur_size / 2;
     (temp->next)->free = true;
 
     free_lists[cur_tier - 1] = temp;
-    free_lists[cur_tier]->free = true;
+    free_lists[cur_tier]->free = true;*/
     if (cur_size / 2 == size_need) {
       return temp->next;
     }
-
+    cur_size /= 2;
     temp = temp->next;
   }
   // return?
@@ -292,7 +307,7 @@ extern Addr my_malloc(unsigned int _length) {
   }
   
   int fl_index = log2(give) - log2(block_size); // index of free list
-  printf("need: %d, give: %d, block size: %d\n", need, give, block_size);
+  printf("1need: %d, give: %d, block size: %d\n", need, give, block_size);
   printf("fl_index: %d\n\n", fl_index);
   
   // If valid amt of mem to give and we have room for it
@@ -301,7 +316,8 @@ extern Addr my_malloc(unsigned int _length) {
   // Ehh?
   //return (void*) ((char*) split(give)) + sizeof(Header*));
   Header* hh = split(give);
-  //printf("SIZE: %d\n", hh->size);
+  if (hh)
+    printf("2GIVE: %d, SPLIT SIZE: %d\n", give, hh->size);
   return malloc((size_t)_length);
 }
 
