@@ -34,7 +34,18 @@ int main(int argc, char ** argv) {
   }
   printf("B: %d, M: %d\n", b, M);
   init_allocator(b, M);
-  ackerman_main();
+  //  ackerman_main();
+    void* h1 = my_malloc(1024);
+  printf("Header address: %p\n", h1);
+  /*
+  my_free(h1);
 
-  // release_allocator()
+    void* h2 = my_malloc(500);
+  printf("Header address: %p\n", h2);
+
+  void* h3 = my_malloc(256);
+  printf("Header address: %p\n", h3);
+  */
+
+  release_allocator();
 }
