@@ -314,13 +314,12 @@ extern Addr my_malloc(unsigned int _length) {
   // If valid amt of mem to give and we have room for it
   int ct = num_lists - 1;
       
-  // Ehh?
   //return (void*) ((char*) split(give)) + sizeof(Header*));
-  Header* hh = split(give);
-  // if (hh)
+  Header* hh = split(give) + sizeof(Header);
   printf("2GIVE: %d, SPLIT SIZE: %d\n", give, hh->size);
-  //return (void*) hh;
-  return malloc((size_t)_length);
+  printf("base: %p, hh: %p\n", (void*) base_addr, hh);
+  return (void*) hh;
+  //return malloc((size_t)_length);
 }
 
 extern int my_free(Addr _a) {/*
