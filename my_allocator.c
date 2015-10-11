@@ -247,6 +247,7 @@ Header* split(int size_need) {
     cur_size /= 2;
     temp = temp->next;
   }
+  return temp;
   // return?
 }
 
@@ -316,8 +317,9 @@ extern Addr my_malloc(unsigned int _length) {
   // Ehh?
   //return (void*) ((char*) split(give)) + sizeof(Header*));
   Header* hh = split(give);
-  if (hh)
-    printf("2GIVE: %d, SPLIT SIZE: %d\n", give, hh->size);
+  // if (hh)
+  printf("2GIVE: %d, SPLIT SIZE: %d\n", give, hh->size);
+  //return (void*) hh;
   return malloc((size_t)_length);
 }
 
