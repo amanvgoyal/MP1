@@ -65,7 +65,7 @@ unsigned int init_allocator(unsigned int _basic_block_size,
    it returns 0. 
 */ 
 
-int release_allocator(); 
+void release_allocator(); 
 /* This function returns any allocated memory to the operating system. 
    After this function is called, any allocation fails.
 */ 

@@ -64,15 +64,17 @@ bool no_room = false;
 // clear header portion of a block so we can merge
 void clear(Header* buddy1) {
   // DO A MEMSET OF 2*BLOCKSIZE - HEADER SIZE
-  
   Header* buddy2_addr = (Header*) ((intptr_t)buddy1 ^ buddy1->size); 
+  
+  //int offset = (char*) buddy1 - (char*) base_addr;
+  //int buddy_offset = offset ^ (buddy1->size);
+  //Header* buddy_addr = (Header*) base_addr + buddy_offset;
   memset(buddy2_addr, 0, sizeof(Header));
 }
 
 // merge buddies
 Header* join(Header* buddy1) {
   //clear(buddy1); ADD THIS IN LATER
-  
   int offset = (char*) buddy1 - (char*) base_addr;
   int buddy_offset = offset ^ (buddy1->size);
   Header* buddy_addr = (Header*) base_addr + buddy_offset;
@@ -105,7 +107,7 @@ Header* join(Header* buddy1) {
     if (free_lists[tier + 1]->free) {
       free_lists[tier + 1] = buddy1;
       
-      if(free_lists[tier] == buddy_addr)//aman: i made few changes in this para.
+      if(free_lists[tier] == buddy_addr)
 	free_lists[tier] = buddy_addr->next;
       else{
 	temp = free_lists[tier];
@@ -141,7 +143,6 @@ Header* split(int size_need) {
   int ct = cur_tier;
   //  while (temp == NULL || temp->free == true) {
   while (temp == NULL && ct < num_lists) {
-    printf("ct: %d\n", ct);
     ++ct;
     temp = free_lists[ct];
   }
@@ -165,7 +166,6 @@ Header* split(int size_need) {
   
   printf("cur: %d, need: %d\n", cur_size, size_need);
   while (cur_size > size_need) {
-    printf("IN HERE ! \n");
     int offset = (char*) temp - (char*) base_addr; //i assume this to work
     int buddy_offset = offset ^ (temp->size / 2);
     char* buddy_addr = (char*) base_addr + buddy_offset;
@@ -181,7 +181,7 @@ Header* split(int size_need) {
     buddy2->free = true;
     buddy2->next = NULL;
 
-    printf("numlists: %d, cur_tier: %d\n", num_lists, cur_tier);
+    //printf("numlists: %d, cur_tier: %d\n", num_lists, cur_tier);
     free_lists[cur_tier - 1]->next = buddy2;
         
     /*
@@ -238,13 +238,16 @@ unsigned int init_allocator(unsigned int b, unsigned int len) {
   free_lists[num_lists - 1]->next = NULL;
   free_lists[num_lists - 1]->free = true;
   free_lists[num_lists - 1]->size = max_size;
-  printf("\nlast: %d\n", free_lists[num_lists - 1]->size);
+  printf("\nNew mem size: %d\n", free_lists[num_lists - 1]->size);
 
   return max_size;
 }
 
-int release_allocator() {
-  return 0;
+//int release_allocator() {
+void release_allocator() {
+  free(free_lists);
+  free(mem);
+  //  return 0;
 }
 
 extern Addr my_malloc(unsigned int _length) {
@@ -258,51 +261,46 @@ extern Addr my_malloc(unsigned int _length) {
     printf("give: %d, max: %d\n", give, max_size);
     printf("YOU NEED TOO MUCH!\n");
     give = 0; // FIX THIS
+
     return 0;
   }
   
   int fl_index = log2(give) - log2(block_size); // index of free list
-  printf("1need: %d, give: %d, block size: %d\n", need, give, block_size);
+  printf("1 - need: %d, give: %d, block size: %d\n", need, give, block_size);
   printf("fl_index: %d\n\n", fl_index);
   
   // If valid amt of mem to give and we have room for it
   int ct = num_lists - 1;
       
   Header* hh = split(give);// + sizeof(Header);
-  printf("2GIVE: %d, SPLIT SIZE: %d\n", give, hh->size);
+  printf("2 - GIVE: %d, SPLIT SIZE: %d\n", give, hh->size);
   printf("base: %p, hh: %p\n", (void*) base_addr, hh);
-  return (void*) hh;
-  //return malloc((size_t)_length);
+  //return (void*) hh;
+  return malloc((size_t)_length);
 }
 
-extern int my_free(Addr _a) {/*
-  Header* h = (Header*) _a - sizeof(Header*);
-   h->free = true;
-   join(h);*/
-
-
-  /* Same here! */
+extern int my_free(Addr _a) {
   // Reject invalid free requests
-  /*if (!_a) {return -1;}
+  if (!_a) {return -1;}
   
-  
+  /*
   // Get beginning of memory before header
-  Header* begin = (Header*) ((char*) _a - sizeof(Header));
-  int tier = log2(begin->size) - log2(block_size);
+  Header* begin = (Header*) ((char*) _a);// - sizeof(Header));
+  // int tier = log2(begin->size) - log2(block_size);
   begin->free = true;
-  begin->size = 2 * begin->size;
+  join(begin);
+  */
   
-  // no block in next highest tier 
+  /*
+  //begin->size = 2 * begin->size; covered by free
+    // no block in next highest tier 
   if (!free_lists[tier + 1] && tier + 1 < num_lists) {
     begin->next = NULL;
     free_lists[tier + 1] = begin;
   } 
-  
-  // exist blocks in next highest tier
-  else {
-    
-  }
+  else{}
   */
+
   free(_a);
   return 0;
 }
