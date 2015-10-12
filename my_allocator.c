@@ -74,34 +74,34 @@ void clear(Header* buddy1) {
 
 // merge buddies
 Header* join(Header* buddy1) {
-  //clear(buddy1); ADD THIS IN LATER
+ 
   int offset = (char*) buddy1 - (char*) base_addr;
   int buddy_offset = offset ^ (buddy1->size);
   Header* buddy_addr = (Header*) base_addr + buddy_offset;
 
-  int tier = log2(buddy1->size) - log2(block_size);
-  if (! buddy_addr->free) {
+  int tier = log2(buddy1->size) - log2(block_size);//formula to calculate the correct tier in freelist
+  if (! buddy_addr->free) {// check if buddy is not free
    
     // Take free blocks back, put back in free list
-    if (free_lists[tier]) {
+    if (free_lists[tier]) {//check if tier for buddy1 in free list is not null
       Header* temp = free_lists[tier];
       if (!temp->free) {
-	while (temp->next) {
+	while (temp->next) {//iterate to the last block pointed by that tier
 	  temp = temp->next;
 	}
-	temp->next = buddy1;
+	temp->next = buddy1;//put the address of buddy in next of last block
       }
       else {
-	free_lists[tier] = buddy1;
+	free_lists[tier] = buddy1;//if corresponding tier in free list was null, directly put adrres of buddy1 there
       }
     }
   
     else {
-      free_lists[tier] = buddy1;
+      free_lists[tier] = buddy1;//if corresponding tier in free list was null, directly put adrres of buddy1 there.
     }
   }
 
-  else {
+  else {//if the buddy of the block is free, nso we join them
     buddy1->size = 2 * buddy1->size;
     Header* temp = free_lists[tier];
     if (free_lists[tier + 1]->free) {
@@ -124,7 +124,7 @@ Header* join(Header* buddy1) {
 	temp2 = temp2->next;
       }
       temp2->next = buddy1;
-      join(buddy1);
+      join(buddy1);//call the function again to check and join if any more joins are possible
     }
   }
 }
@@ -132,10 +132,10 @@ Header* join(Header* buddy1) {
 // Split a block 
 // void split(int tier, int size)
 Header* split(int size_need) {
-  int cur_tier = log2(size_need) - log2(block_size);
+  int cur_tier = log2(size_need) - log2(block_size);//to calculate the tier in free list for required memory
   Header* temp = free_lists[cur_tier]; //????? maybe change to num_lists - 1
 
-  if (free_lists[cur_tier]) {
+  if (free_lists[cur_tier]) {//if the tier of corresponding memory in free list is not null
     temp = free_lists[cur_tier];
   }
   // Need else case here?
