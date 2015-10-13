@@ -41,10 +41,10 @@ Header* mem;
 Header** free_lists; // lists for each size 2^k, k in [4, max]
 int num_lists = 0; // cardinality of above set 
 int max_size = 0; // maximum block size (size of blocks in last free list)
-int mem_size = 0;
-int block_size = 0;
-Header* base_addr;
-bool no_room = false;
+int mem_size = 0; // size of whole memory chunk
+int block_size = 0; // size of basic block 
+Header* base_addr; // beginning address of memory chunk
+
 /*--------------------------------------------------------------------------*/
 /* CONSTANTS */
 /*--------------------------------------------------------------------------*/
@@ -63,25 +63,21 @@ bool no_room = false;
 
 // clear header portion of a block so we can merge
 void clear(Header* buddy1) {
-  // DO A MEMSET OF 2*BLOCKSIZE - HEADER SIZE
   Header* buddy2_addr = (Header*) ((intptr_t)buddy1 ^ buddy1->size); 
-  
-  //int offset = (char*) buddy1 - (char*) base_addr;
-  //int buddy_offset = offset ^ (buddy1->size);
-  //Header* buddy_addr = (Header*) base_addr + buddy_offset;
   memset(buddy2_addr, 0, sizeof(Header));
 }
 
 // merge buddies
 Header* join(Header* buddy1) {
- 
   int offset = (char*) buddy1 - (char*) base_addr;
   int buddy_offset = offset ^ (buddy1->size);
-  Header* buddy_addr = (Header*) base_addr + buddy_offset;
+  char* buddy = (char*) base_addr + buddy_offset;
+
+  Header* buddy_addr = (Header*) buddy;
 
   int tier = log2(buddy1->size) - log2(block_size);//formula to calculate the correct tier in freelist
+  if (buddy_addr) {
   if (! buddy_addr->free) {// check if buddy is not free
-   
     // Take free blocks back, put back in free list
     if (free_lists[tier]) {//check if tier for buddy1 in free list is not null
       Header* temp = free_lists[tier];
@@ -100,6 +96,7 @@ Header* join(Header* buddy1) {
       free_lists[tier] = buddy1;//if corresponding tier in free list was null, directly put adrres of buddy1 there.
     }
   }
+}
 
   else {//if the buddy of the block is free, nso we join them
     buddy1->size = 2 * buddy1->size;
@@ -133,49 +130,37 @@ Header* join(Header* buddy1) {
 // void split(int tier, int size)
 Header* split(int size_need) {
   int cur_tier = log2(size_need) - log2(block_size);//to calculate the tier in free list for required memory
-  Header* temp = free_lists[cur_tier]; //????? maybe change to num_lists - 1
+  Header* temp = free_lists[cur_tier]; 
 
   if (free_lists[cur_tier]) {//if the tier of corresponding memory in free list is not null
     temp = free_lists[cur_tier];
   }
-  // Need else case here?
   
+  // move temp to a suitable free list tier
   int ct = cur_tier;
-  //  while (temp == NULL || temp->free == true) {
   while (temp == NULL && ct < num_lists) {
     ++ct;
     temp = free_lists[ct];
   }
   
-  /*
-  //TAKING THIS OUT MAKES DIFF BETWEEN SPLIT HEADER ADDR & BASE MEM HUGE
-  while(!temp) { //i just commemted ti out, doesn't make sense as of now
-    ++ct;
-    temp = free_lists[ct];
-    printf("Ct: %d\n", ct);
-  }
-  */ 
-
   int cur_size = pow(2, cur_tier + log2(block_size));
-  // should be !=
   if (temp != NULL){//condition if memory is unavailable
     //printf("cbefore: %d, need: %d\n", cur_size, size_need);
-    //temp->size = 0;
-    cur_size = temp->size;//aman - make sure if you use size , then previously save them in header.
+    cur_size = temp->size;
   }
   
   printf("cur: %d, need: %d\n", cur_size, size_need);
   while (cur_size > size_need) {
-    int offset = (char*) temp - (char*) base_addr; //i assume this to work
-    int buddy_offset = offset ^ (temp->size / 2);
-    char* buddy_addr = (char*) base_addr + buddy_offset;
-      
-    
+    // Find where 2nd buddy will go 
+    char* buddy_addr = (char*) temp + (temp->size / 2);
+
     // Set 1st buddy
     temp->size = cur_size / 2;
     temp->free = true;
     
+    // Set 2nd buddy
     free_lists[cur_tier - 1] = temp;
+    printf("CUR SIZE / 2: %d\n", cur_size / 2);
     Header * buddy2 = (Header*) buddy_addr;
     buddy2->size = cur_size / 2;
     buddy2->free = true;
@@ -183,30 +168,18 @@ Header* split(int size_need) {
 
     //printf("numlists: %d, cur_tier: %d\n", num_lists, cur_tier);
     free_lists[cur_tier - 1]->next = buddy2;
-        
-    /*
-    temp->size = cur_size / 2;
-    temp->free = true;
-    temp->next = (Header*) buddy_addr;
-    
-    (temp->next)->size = cur_size / 2;
-    (temp->next)->free = true;
-
-    free_lists[cur_tier - 1] = temp;
-    free_lists[cur_tier]->free = true;*/
+     
     if (cur_size / 2 == size_need) { 
-      return buddy2;//temp->next;
+      return buddy2;
     }
     cur_size /= 2;
     temp = temp->next;
   }
   return temp;
-  // return?
 }
 
 unsigned int init_allocator(unsigned int b, unsigned int len) {
   int alloc_size = 0;
-  //  block_size = b;
 
   // Prevent user from making blocks larger than total memory
   if (b > len) {
@@ -214,19 +187,18 @@ unsigned int init_allocator(unsigned int b, unsigned int len) {
     abort();
   }
 
-  // Figure out how many tiers of free lists we have
-  // 1st tier has size 16, second 32, ...
-  
-  //max_size = pow(2, num_lists + log2(b)); // Give too much
+  // Round sizes to powers of 2 for convenience
   max_size = pow(2, (int) round(log2(len) - .5));
   block_size = pow(2, (int) round(log2(b) - .5));
 
+  // Get # free list tiers
   int size = max_size;
   while (size > block_size - 1) {
     size /= 2;
     ++num_lists;
   }
 
+  // Set up memory chunk and free lists
   mem = (Header*) malloc(max_size);
   free_lists = (Header**) malloc(sizeof(Header) * num_lists);
 
@@ -234,6 +206,7 @@ unsigned int init_allocator(unsigned int b, unsigned int len) {
   
   for (int i = 0; i < num_lists - 1; ++i) {free_lists[i] = NULL;}
 
+  // Set up last free list to contain whole memory (max size)
   free_lists[num_lists - 1] = mem;
   free_lists[num_lists - 1]->next = NULL;
   free_lists[num_lists - 1]->free = true;
@@ -243,11 +216,10 @@ unsigned int init_allocator(unsigned int b, unsigned int len) {
   return max_size;
 }
 
-//int release_allocator() {
+// Finally give our free list and memory chunk back to OS
 void release_allocator() {
   free(free_lists);
   free(mem);
-  //  return 0;
 }
 
 extern Addr my_malloc(unsigned int _length) {
@@ -260,7 +232,7 @@ extern Addr my_malloc(unsigned int _length) {
   if (give > max_size) {
     printf("give: %d, max: %d\n", give, max_size);
     printf("YOU NEED TOO MUCH!\n");
-    give = 0; // FIX THIS
+    give = 0; 
 
     return 0;
   }
@@ -272,35 +244,30 @@ extern Addr my_malloc(unsigned int _length) {
   // If valid amt of mem to give and we have room for it
   int ct = num_lists - 1;
       
-  Header* hh = split(give);// + sizeof(Header);
+  Header* hh = split(give);
   printf("2 - GIVE: %d, SPLIT SIZE: %d\n", give, hh->size);
   printf("base: %p, hh: %p\n", (void*) base_addr, hh);
-  //return (void*) hh;
-  return malloc((size_t)_length);
+  return (void*) hh + sizeof(Header);
+  //return malloc((size_t)_length);
 }
 
 extern int my_free(Addr _a) {
   // Reject invalid free requests
   if (!_a) {return -1;}
-  
+ 
+
+  // using the blow commented block causes segmentation faults from join
+  // if we use our malloc logic rather than the c lib malloc
+
   /*
   // Get beginning of memory before header
   Header* begin = (Header*) ((char*) _a);// - sizeof(Header));
-  // int tier = log2(begin->size) - log2(block_size);
   begin->free = true;
   join(begin);
   */
   
-  /*
-  //begin->size = 2 * begin->size; covered by free
-    // no block in next highest tier 
-  if (!free_lists[tier + 1] && tier + 1 < num_lists) {
-    begin->next = NULL;
-    free_lists[tier + 1] = begin;
-  } 
-  else{}
-  */
-
-  free(_a);
+  // using this when we use our malloc logic gives invalid pointer errors
+  //free(_a);
   return 0;
+
 }
